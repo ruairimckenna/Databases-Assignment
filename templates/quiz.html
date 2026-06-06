@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz{% endblock %}
+
+{% block content %}
+    <h1>Quiz</h1>
+
+    {% if topics %}
+        <form method="get">
+            <label for="topic">Choose a topic:</label>
+            <select id="topic" name="topic" onchange="this.form.submit()">
+                {% for topic in topics %}
+                    <option value="{{ topic.id }}" {% if selected_topic and topic.id == selected_topic.id %}selected{% endif %}>{{ topic.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if selected_topic %}
+            <h2>{{ selected_topic.name }}</h2>
+            {% if flashcard %}
+                <div class="card">
+                    <p><strong>Subtopic:</strong> {{ flashcard.subtopic.name }}</p>
+                    <p><strong>Plaintiff:</strong> {{ flashcard.plaintiff }}</p>
+                    <p><strong>Defendant:</strong> {{ flashcard.defendant or 'N/A' }}</p>
+                    <form method="post">
+                        <input type="hidden" name="card_id" value="{{ flashcard.id }}">
+                        <input type="hidden" name="topic_id" value="{{ selected_topic.id }}">
+                        <label for="answer">Who is the {{ question_label }}?</label>
+                        <input id="answer" type="text" name="answer" value="{{ user_answer }}">
+                        <button type="submit">Submit</button>
+                    </form>
+
+                    {% if result == 'correct' %}
+                        <p class="correct">Correct!</p>
+                    {% elif result == 'incorrect' %}
+                        <p class="incorrect">Not correct. The correct answer is <strong>{{ correct_answer }}</strong>.</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p>No flashcards available for this topic yet.</p>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <p>No preset topics found. Reload the app to initialize SQLite.</p>
+    {% endif %}
+{% endblock %}

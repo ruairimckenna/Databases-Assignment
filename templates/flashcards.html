@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Flashcards{% endblock %}
+
+{% block content %}
+    <h1>Flashcards</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="messages">
+                {% for category, message in messages %}
+                    <div class="message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <h2>Add a Flashcard</h2>
+        <form method="post">
+            {{ flashcard_form.hidden_tag() }}
+            <label>{{ flashcard_form.topic_id.label }}</label>
+            {{ flashcard_form.topic_id(class="full") }}
+
+            <label>{{ flashcard_form.subtopic_id.label }}</label>
+            {{ flashcard_form.subtopic_id(class="full") }}
+
+            <label>{{ flashcard_form.new_subtopic.label }}</label>
+            {{ flashcard_form.new_subtopic() }}
+            <small>Enter a new subtopic only if it does not already exist.</small>
+
+            <label>{{ flashcard_form.plaintiff.label }}</label>
+            {{ flashcard_form.plaintiff() }}
+
+            <label>{{ flashcard_form.defendant.label }}</label>
+            {{ flashcard_form.defendant() }}
+
+            <label>{{ flashcard_form.facts.label }}</label>
+            {{ flashcard_form.facts(rows=4) }}
+
+            {{ flashcard_form.submit() }}
+        </form>
+    </div>
+
+    {% if selected_topic %}
+        <h2>Existing cards for {{ selected_topic.name }}</h2>
+        {% if selected_topic.subtopics %}
+            {% for subtopic in selected_topic.subtopics %}
+                <div class="topic-card">
+                    <h3>{{ subtopic.name }}</h3>
+                    {% if subtopic.flashcards %}
+                        <ul>
+                            {% for card in subtopic.flashcards %}
+                                <li>
+                                    <strong>Plaintiff:</strong> {{ card.plaintiff }}<br>
+                                    <strong>Defendant:</strong> {{ card.defendant or 'N/A' }}<br>
+                                    <strong>Facts:</strong> {{ card.facts }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No flashcards yet for this subtopic.</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No subtopics created for this topic yet.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}
