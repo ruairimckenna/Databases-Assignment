@@ -143,6 +143,73 @@ def flashcards():
         subtopics_by_topic=subtopics_by_topic,
     )
 
+@app.route("/flashcards/edit/<int:card_id>", methods=["GET", "POST"])
+def edit_flashcard(card_id):
+    card = Flashcard.query.get(card_id)
+    if not card:
+        flash("Flashcard not found.", "warning")
+        return redirect(url_for("flashcards"))
+
+    topics = Topic.query.order_by(Topic.name).all()
+    flashcard_form = FlashcardForm()
+    flashcard_form.topic_id.choices = [(topic.id, topic.name) for topic in topics]
+
+    topic_id = card.topic_id
+    selected_topic = Topic.query.get(topic_id)
+    subtopics_for_topic = Subtopic.query.filter_by(topic_id=topic_id).order_by(Subtopic.name).all() if selected_topic else []
+    flashcard_form.subtopic_id.choices = [(-1, "Choose subtopic")] + [
+        (subtopic.id, subtopic.name) for subtopic in subtopics_for_topic
+    ]
+
+    if flashcard_form.validate_on_submit():
+        new_topic_id = flashcard_form.topic_id.data
+        new_topic = Topic.query.get(new_topic_id)
+        if not new_topic:
+            flash("Select a valid topic.", "warning")
+            return redirect(url_for("flashcards"))
+
+        new_subtopic_name = flashcard_form.new_subtopic.data.strip()
+        subtopic = None
+
+        if new_subtopic_name:
+            subtopic = Subtopic.query.filter_by(
+                name=new_subtopic_name,
+                topic_id=new_topic.id,
+            ).first()
+            if not subtopic:
+                subtopic = Subtopic(name=new_subtopic_name, topic_id=new_topic.id)
+                db.session.add(subtopic)
+                db.session.commit()
+        elif flashcard_form.subtopic_id.data and flashcard_form.subtopic_id.data != -1:
+            subtopic = Subtopic.query.get(flashcard_form.subtopic_id.data)
+
+        if not subtopic:
+            flash("Choose or add a subtopic before saving a flashcard.", "warning")
+            return redirect(url_for("flashcards", topic=new_topic.id))
+
+        card.plaintiff = flashcard_form.plaintiff.data.strip()
+        card.defendant = flashcard_form.defendant.data.strip() or None
+        card.facts = flashcard_form.facts.data.strip()
+        card.topic_id = new_topic.id
+        card.subtopic_id = subtopic.id
+        db.session.commit()
+        flash("Flashcard updated.", "success")
+        return redirect(url_for("flashcards", topic=new_topic.id))
+
+    if request.method == "GET":
+        flashcard_form.topic_id.data = card.topic_id
+        flashcard_form.subtopic_id.data = card.subtopic_id
+        flashcard_form.plaintiff.data = card.plaintiff
+        flashcard_form.defendant.data = card.defendant
+        flashcard_form.facts.data = card.facts
+
+    return render_template(
+        "edit_flashcard.html",
+        flashcard_form=flashcard_form,
+        card=card,
+        topics=topics,
+    )
+
 @app.route("/flashcards/delete/<int:card_id>", methods=["POST"])
 def delete_flashcard(card_id):
     card = Flashcard.query.get(card_id)
@@ -247,7 +314,7 @@ def quiz():
                 query = query.filter_by(subtopic_id=selected_subtopic.id)
             cards = query.order_by(Flashcard.id).all() if selected_topic else []
             card_ids_list = [card.id for card in cards]
-            card_ids = ",".join(str(card.id) for card in card_ids_list)
+            card_ids = ",".join(str(card) for card in card_ids_list)
             total = len(card_ids_list)
             flashcard = Flashcard.query.get(card_ids_list[0]) if card_ids_list else None
 
@@ -271,12 +338,13 @@ def quiz():
                     else:
                         result = "incorrect"
                         correct_answer = answers[0] if answers[0] else (answers[1] if answers[1] else "N/A")
+                    flashcard = card
+            
+            # Only move to next card if there is one
+            if current_index + 1 < total:
                 current_index += 1
-            if current_index >= total:
-                is_finished = True
-                flashcard = None
-            else:
                 flashcard = Flashcard.query.get(card_ids_list[current_index])
+                result = None
 
         elif action == "finish":
             total = len(card_ids_list)
