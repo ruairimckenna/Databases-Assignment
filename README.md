@@ -11,3 +11,6 @@ The app creates flashcards and adds them to a database on the 'flashcards.html' 
 The flash cards are sorted into 8 subjects/topics, which can be broken down further into subtopics if the user wishes. 
 
 I have filled out a few in the topic "The Law of Torts" which I'm hoping you might be able to see on your end, so that you can flick through them. 
+
+Only at the last minute do I see that I might have had to use postgre as the database? I thought from a lecture that I was meant to use SQLite. 
+I also have no .env as its just late in the day and I don't want to risk anything by fiddling with it now. I've only realised these two things as I'm finished. 
