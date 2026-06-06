@@ -1,4 +1,5 @@
 import os
+from pydoc_data.topics import topics
 import random
 from flask import Flask, render_template, request, redirect, url_for, flash
 from models import db, Topic, Subtopic, Flashcard
@@ -57,12 +58,12 @@ def flashcards():
 
     topic_id = request.args.get("topic", type=int)
     selected_topic = Topic.query.get(topic_id) if topic_id else None
+
     if not selected_topic and topics:
         selected_topic = topics[0]
 
-    subtopics_for_topic = []
-    if selected_topic:
-        subtopics_for_topic = Subtopic.query.filter_by(topic_id=selected_topic.id).order_by(Subtopic.name).all()
+    subtopics_for_topic = Subtopic.query.order_by(Subtopic.name).all()
+    
     flashcard_form.subtopic_id.choices = [(-1, "Choose subtopic")] + [
         (subtopic.id, subtopic.name) for subtopic in subtopics_for_topic
     ]
@@ -384,19 +385,12 @@ def quiz():
                         result = "incorrect"
                         correct_answer = answers[0] if answers[0] else (answers[1] if answers[1] else "N/A")
                     flashcard = card
-
-        elif action == "next":
-            total = len(card_ids_list)
-            # Move to next card if available
+            
+            # Only move to next card if there is one
             if current_index + 1 < total:
                 current_index += 1
                 flashcard = Flashcard.query.get(card_ids_list[current_index])
                 result = None
-                user_answer = ""
-            else:
-                # No more cards, show finish screen
-                is_finished = True
-                flashcard = None
 
         elif action == "finish":
             total = len(card_ids_list)

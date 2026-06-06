@@ -9,12 +9,19 @@ body {
 
 .navbar {
     background: #2d3e50;
-    padding: 12px 0;
+    padding: 12px 20px;
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 10;
+}
+
+.nav-title {
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
 }
 
 .menu-container {

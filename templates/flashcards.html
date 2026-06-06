@@ -29,16 +29,22 @@
             {{ flashcard_form.new_subtopic() }}
             <small>Enter a new subtopic only if it does not already exist.</small>
 
+            <br>
+
             <button type="button" onclick="addSubtopicOnly()" style="background: #3498db; margin-top: 10px;">Create Subtopic Only</button>
 
+            <br><br>
+
             <label>{{ flashcard_form.plaintiff.label }}</label>
+
             {{ flashcard_form.plaintiff() }}
 
             <label>{{ flashcard_form.defendant.label }}</label>
             {{ flashcard_form.defendant() }}
 
             <label>{{ flashcard_form.facts.label }}</label>
-            {{ flashcard_form.facts(rows=4) }}
+            <br>
+            {{ flashcard_form.facts(rows=6, style="width:100%; min-height:120px;") }}
 
             {{ flashcard_form.submit() }}
         </form>
@@ -49,12 +55,13 @@
         <div class="filter-row">
             <div class="filter-item">
                 <label for="topic-filter">Topic</label>
-                <select id="topic-filter" onchange="onFilterTopicChange()">
-                    <option value="all">All Topics</option>
-                    {% for topic in topics %}
-                        <option value="{{ topic.id }}">{{ topic.name }}</option>
-                    {% endfor %}
-                </select>
+                    <select id="topic-filter" onchange="onFilterTopicChange()">
+                        <option value="all">All Topics</option>
+
+                        {% for topic in topics %}
+                         <option value="{{ topic.id }}">{{ topic.name }}</option>
+                        {% endfor %}
+                    </select>
             </div>
             <div class="filter-item">
                 <label for="subtopic-filter">Subtopic</label>
