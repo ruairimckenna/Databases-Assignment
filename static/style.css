@@ -1,7 +1,7 @@
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: linear-gradient(rgba(244, 247, 251, 0.5), rgba(244, 247, 251, 0.5)), url('office.webp');
+    background: linear-gradient(rgba(244, 247, 251, 0.6), rgba(244, 247, 251, 0.6)), url('office.webp');
     background-size: cover;
     background-attachment: fixed;
     color: #22303c;
@@ -67,7 +67,9 @@ body {
     max-width: 960px;
     margin: 90px auto 40px;
     padding: 0 20px;
-    text-align: left;
+    text-align: justify;
+    font-size: 18px;
+    line-height: 1.7;
 }
 
 h1, h2, h3 {
@@ -130,7 +132,7 @@ button:hover, input[type="submit"]:hover {
     padding-left: 0;
 }
 
-..topic-card li {
+.topic-card li {
     padding: 8px 10px;
     border-bottom: 1px solid #eef2f7;
 }
@@ -319,4 +321,10 @@ th {
     .content {
         margin-top: 80px;
     }
+}
+
+.quiz-label {
+    display: block;
+    text-align: left;
+    margin-bottom: 6px;
 }
