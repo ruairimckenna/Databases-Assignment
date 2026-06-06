@@ -20,7 +20,7 @@
         <form method="post">
             {{ flashcard_form.hidden_tag() }}
             <label>{{ flashcard_form.topic_id.label }}</label>
-            {{ flashcard_form.topic_id(class="full", id="topic-select", onchange="populateSubtopicSelect(document.getElementById('subtopic-select'), this.value, 'Choose subtopic')") }}
+            {{ flashcard_form.topic_id(class="full", id="topic-select", value=selected_topic_id or '', onchange="populateSubtopicSelect(document.getElementById('subtopic-select'), this.value, 'Choose subtopic')") }}
 
             <label>{{ flashcard_form.subtopic_id.label }}</label>
             {{ flashcard_form.subtopic_id(class="full", id="subtopic-select") }}
@@ -28,6 +28,8 @@
             <label>{{ flashcard_form.new_subtopic.label }}</label>
             {{ flashcard_form.new_subtopic() }}
             <small>Enter a new subtopic only if it does not already exist.</small>
+
+            <button type="button" onclick="addSubtopicOnly()" style="background: #3498db; margin-top: 10px;">Create Subtopic Only</button>
 
             <label>{{ flashcard_form.plaintiff.label }}</label>
             {{ flashcard_form.plaintiff() }}
@@ -119,12 +121,48 @@
             selectElement.appendChild(defaultOption);
 
             const options = subtopicsByTopic[String(topicId)] || [];
-            options.forEach((subtopic) => {
+            options.forEach(function(subtopic) {
                 const option = document.createElement('option');
                 option.value = subtopic.id;
                 option.textContent = subtopic.name;
                 selectElement.appendChild(option);
             });
+        }
+
+        function addSubtopicOnly() {
+            const topicSelect = document.getElementById('topic-select');
+            const newSubtopicInput = document.querySelector('input[name="new_subtopic"]');
+            const topicId = topicSelect.value;
+            const subtopicName = newSubtopicInput.value.trim();
+
+            if (!topicId || topicId === '') {
+                alert('Please select a topic first.');
+                return;
+            }
+
+            if (!subtopicName) {
+                alert('Please enter a subtopic name.');
+                return;
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("add_subtopic") }}';
+            
+            const topicInput = document.createElement('input');
+            topicInput.type = 'hidden';
+            topicInput.name = 'topic_id';
+            topicInput.value = topicId;
+            
+            const subtopicInput = document.createElement('input');
+            subtopicInput.type = 'hidden';
+            subtopicInput.name = 'subtopic_name';
+            subtopicInput.value = subtopicName;
+            
+            form.appendChild(topicInput);
+            form.appendChild(subtopicInput);
+            document.body.appendChild(form);
+            form.submit();
         }
 
         function populateFilterSubtopics(topicId) {
@@ -136,10 +174,12 @@
 
             if (topicId === 'all') {
                 const allSubtopics = new Set();
-                Object.values(subtopicsByTopic).forEach((subs) => {
-                    subs.forEach((subtopic) => allSubtopics.add(subtopic.name));
+                Object.values(subtopicsByTopic).forEach(function(subs) {
+                    subs.forEach(function(subtopic) {
+                        allSubtopics.add(subtopic.name);
+                    });
                 });
-                Array.from(allSubtopics).sort().forEach((name) => {
+                Array.from(allSubtopics).sort().forEach(function(name) {
                     const option = document.createElement('option');
                     option.value = name.toLowerCase();
                     option.textContent = name;
@@ -148,7 +188,7 @@
                 return;
             }
 
-            (subtopicsByTopic[String(topicId)] || []).forEach((subtopic) => {
+            (subtopicsByTopic[String(topicId)] || []).forEach(function(subtopic) {
                 const option = document.createElement('option');
                 option.value = subtopic.name.toLowerCase();
                 option.textContent = subtopic.name;
@@ -162,7 +202,7 @@
             filterFlashcards();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', function() {
             if (flashcardTopicSelect && flashcardSubtopicSelect) {
                 const topicId = flashcardTopicSelect.value;
                 populateSubtopicSelect(flashcardSubtopicSelect, topicId, 'Choose subtopic');
