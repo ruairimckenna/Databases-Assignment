@@ -1,7 +1,7 @@
 import os
 import random
 from flask import Flask, render_template, request, redirect, url_for, flash
-from models import db, Topic, Flashcard
+from models import db, Topic, Subtopic, Flashcard
 from forms import TopicForm, FlashcardForm
 
 app = Flask(__name__, instance_relative_config=True)
@@ -55,6 +55,28 @@ def flashcards():
     flashcard_form = FlashcardForm()
     flashcard_form.topic_id.choices = [(topic.id, topic.name) for topic in topics]
 
+    topic_id = request.args.get("topic", type=int)
+    selected_topic = Topic.query.get(topic_id) if topic_id else None
+    if not selected_topic and topics:
+        selected_topic = topics[0]
+
+    subtopics_for_topic = []
+    if selected_topic:
+        subtopics_for_topic = Subtopic.query.filter_by(topic_id=selected_topic.id).order_by(Subtopic.name).all()
+    flashcard_form.subtopic_id.choices = [(-1, "Choose subtopic")] + [
+        (subtopic.id, subtopic.name) for subtopic in subtopics_for_topic
+    ]
+
+    subtopics_by_topic = {
+        str(topic.id): [
+            {"id": subtopic.id, "name": subtopic.name}
+            for subtopic in Subtopic.query.filter_by(topic_id=topic.id).order_by(Subtopic.name).all()
+        ]
+        for topic in topics
+    }
+
+    all_flashcards = Flashcard.query.order_by(Flashcard.id.desc()).all()
+
     if topic_form.validate_on_submit() and topic_form.submit.data:
         topic_name = topic_form.name.data.strip()
         if topic_name:
@@ -69,25 +91,70 @@ def flashcards():
         return redirect(url_for("flashcards"))
 
     if flashcard_form.validate_on_submit() and flashcard_form.submit.data:
-        question = flashcard_form.question.data.strip()
-        answer = flashcard_form.answer.data.strip()
         topic_id = flashcard_form.topic_id.data
-        topic = Topic.query.get(topic_id)
+        selected_topic = Topic.query.get(topic_id)
+        if not selected_topic:
+            flash("Select a valid topic.", "warning")
+            return redirect(url_for("flashcards"))
 
-        if topic:
-            db.session.add(Flashcard(question=question, answer=answer, topic_id=topic_id))
-            db.session.commit()
-            flash("Flashcard added successfully.", "success")
-        else:
-            flash("Please select a valid topic.", "warning")
-        return redirect(url_for("flashcards"))
+        new_subtopic_name = flashcard_form.new_subtopic.data.strip()
+        subtopic = None
+
+        if new_subtopic_name:
+            subtopic = Subtopic.query.filter_by(
+                name=new_subtopic_name,
+                topic_id=selected_topic.id,
+            ).first()
+            if not subtopic:
+                subtopic = Subtopic(name=new_subtopic_name, topic_id=selected_topic.id)
+                db.session.add(subtopic)
+                db.session.commit()
+        elif flashcard_form.subtopic_id.data and flashcard_form.subtopic_id.data != -1:
+            subtopic = Subtopic.query.get(flashcard_form.subtopic_id.data)
+
+        if not subtopic:
+            flash("Choose or add a subtopic before saving a flashcard.", "warning")
+            return redirect(url_for("flashcards", topic=selected_topic.id))
+
+        plaintiff = flashcard_form.plaintiff.data.strip()
+        defendant = flashcard_form.defendant.data.strip() or None
+        facts = flashcard_form.facts.data.strip()
+
+        db.session.add(
+            Flashcard(
+                plaintiff=plaintiff,
+                defendant=defendant,
+                facts=facts,
+                topic_id=selected_topic.id,
+                subtopic_id=subtopic.id,
+            )
+        )
+        db.session.commit()
+        flash("Flashcard saved.", "success")
+        return redirect(url_for("flashcards", topic=selected_topic.id))
 
     return render_template(
         "flashcards.html",
         topics=topics,
         topic_form=topic_form,
         flashcard_form=flashcard_form,
+        selected_topic=selected_topic,
+        flashcards=all_flashcards,
+        subtopics_by_topic=subtopics_by_topic,
     )
+
+@app.route("/flashcards/delete/<int:card_id>", methods=["POST"])
+def delete_flashcard(card_id):
+    card = Flashcard.query.get(card_id)
+    topic_id = None
+    if card:
+        topic_id = card.topic_id
+        db.session.delete(card)
+        db.session.commit()
+        flash("Flashcard deleted.", "success")
+    else:
+        flash("Flashcard not found.", "warning")
+    return redirect(url_for("flashcards", topic=topic_id) if topic_id else url_for("flashcards"))
 
 @app.route("/study")
 def study():
@@ -100,47 +167,156 @@ def study():
     elif topics:
         selected_topic = topics[0]
 
+    cards = []
+    study_subtopics = []
+    if selected_topic:
+        cards = Flashcard.query.filter_by(topic_id=selected_topic.id).order_by(Flashcard.id).all()
+        study_subtopics = sorted({card.subtopic.name for card in cards if card.subtopic})
+
     return render_template(
         "study.html",
         topics=topics,
         selected_topic=selected_topic,
+        cards=cards,
+        study_subtopics=study_subtopics,
     )
+
+def string_distance(a, b):
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    if abs(len(a) - len(b)) > 2:
+        return abs(len(a) - len(b))
+
+    dp = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        dp[i][0] = i
+    for j in range(len(b) + 1):
+        dp[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            dp[i][j] = min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + cost,
+            )
+    return dp[-1][-1]
 
 @app.route("/quiz", methods=["GET", "POST"])
 def quiz():
     topics = Topic.query.order_by(Topic.name).all()
-    selected_topic_id = request.args.get("topic", type=int)
+    subtopics_by_topic = {
+        topic.id: [
+            {"id": subtopic.id, "name": subtopic.name}
+            for subtopic in Subtopic.query.filter_by(topic_id=topic.id).order_by(Subtopic.name).all()
+        ]
+        for topic in topics
+    }
+    selected_topic_id = request.values.get("topic", type=int)
+    selected_subtopic_id = request.values.get("subtopic", type=int)
     selected_topic = Topic.query.get(selected_topic_id) if selected_topic_id else None
+    selected_subtopic = Subtopic.query.get(selected_subtopic_id) if selected_subtopic_id else None
     flashcard = None
     result = None
     user_answer = ""
+    correct_answer = None
+    is_finished = False
+    score = request.values.get("score", type=int, default=0)
+    current_index = request.values.get("current", type=int, default=0)
+    card_ids = request.values.get("card_ids", "")
+    total = 0
+    question_label = "plaintiff/principle/defendant"
 
     if request.method == "POST":
-        card_id = request.form.get("card_id", type=int)
-        user_answer = request.form.get("answer", "").strip()
-        flashcard = Flashcard.query.get(card_id)
+        action = request.form.get("action")
         selected_topic = Topic.query.get(request.form.get("topic_id", type=int))
+        selected_subtopic = Subtopic.query.get(request.form.get("subtopic_id", type=int))
+        user_answer = request.form.get("answer", "").strip()
+        card_ids = request.form.get("card_ids", "")
+        current_index = request.form.get("current", type=int, default=0)
+        score = request.form.get("score", type=int, default=0)
+        card_ids_list = [int(cid) for cid in card_ids.split(",") if cid]
 
-        if flashcard:
-            normalized_answer = flashcard.answer.strip().lower()
-            normalized_guess = user_answer.strip().lower()
-            if normalized_answer == normalized_guess:
-                result = "correct"
+        if action == "start":
+            score = 0
+            current_index = 0
+            query = Flashcard.query.filter_by(topic_id=selected_topic.id) if selected_topic else Flashcard.query
+            if selected_topic and selected_subtopic:
+                query = query.filter_by(subtopic_id=selected_subtopic.id)
+            cards = query.order_by(Flashcard.id).all() if selected_topic else []
+            card_ids_list = [card.id for card in cards]
+            card_ids = ",".join(str(card.id) for card in card_ids_list)
+            total = len(card_ids_list)
+            flashcard = Flashcard.query.get(card_ids_list[0]) if card_ids_list else None
+
+        elif action == "answer":
+            total = len(card_ids_list)
+            if card_ids_list and current_index < total:
+                card = Flashcard.query.get(card_ids_list[current_index])
+                if card:
+                    normalized_guess = user_answer.lower()
+                    answers = [card.plaintiff or "", card.defendant or ""]
+                    is_match = False
+                    for ans in answers:
+                        normalized_answer = ans.lower()
+                        if normalized_guess == normalized_answer or string_distance(normalized_guess, normalized_answer) <= 2:
+                            is_match = True
+                            correct_answer = ans
+                            break
+                    if is_match:
+                        score += 1
+                        result = "correct"
+                    else:
+                        result = "incorrect"
+                        correct_answer = answers[0] if answers[0] else (answers[1] if answers[1] else "N/A")
+                current_index += 1
+            if current_index >= total:
+                is_finished = True
+                flashcard = None
             else:
-                result = "incorrect"
-        else:
-            flash("The selected flashcard could not be found.", "warning")
+                flashcard = Flashcard.query.get(card_ids_list[current_index])
+
+        elif action == "finish":
+            total = len(card_ids_list)
+            is_finished = True
+            flashcard = None
+
+        if total == 0 and action != "finish":
+            flashcard = None
+
     else:
-        if selected_topic and selected_topic.flashcards:
-            flashcard = random.choice(selected_topic.flashcards)
+        if selected_topic:
+            query = Flashcard.query.filter_by(topic_id=selected_topic.id)
+            if selected_subtopic:
+                query = query.filter_by(subtopic_id=selected_subtopic.id)
+            cards = query.order_by(Flashcard.id).all()
+            total = len(cards)
+        else:
+            total = 0
+
+    subtopics = []
+    if selected_topic:
+        subtopics = Subtopic.query.filter_by(topic_id=selected_topic.id).order_by(Subtopic.name).all()
 
     return render_template(
         "quiz.html",
         topics=topics,
         selected_topic=selected_topic,
+        selected_subtopic=selected_subtopic,
+        subtopics=subtopics,
+        subtopics_by_topic=subtopics_by_topic,
         flashcard=flashcard,
         result=result,
         user_answer=user_answer,
+        correct_answer=correct_answer,
+        score=score,
+        total=total,
+        current=current_index,
+        card_ids=card_ids,
+        question_label=question_label,
+        is_finished=is_finished,
     )
 
 if __name__ == "__main__":

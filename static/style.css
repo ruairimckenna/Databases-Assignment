@@ -93,6 +93,13 @@ button, input[type="submit"] {
     cursor: pointer;
 }
 
+.quiz-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
 button:hover, input[type="submit"]:hover {
     background: #1a2836;
 }
@@ -116,9 +123,73 @@ button:hover, input[type="submit"]:hover {
     padding-left: 0;
 }
 
-.topic-card li {
+..topic-card li {
     padding: 8px 10px;
     border-bottom: 1px solid #eef2f7;
+}
+
+.flashcard-snippet {
+    margin-top: 24px;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.filter-item {
+    flex: 1;
+    min-width: 180px;
+}
+
+.filter-item label,
+.filter-item input,
+.filter-item select,
+.flashcard-snippet label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.filter-item input,
+.filter-item select,
+.flashcard-snippet input,
+.flashcard-snippet select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 14px;
+    border: 1px solid #c3d0df;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.table-wrap {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #c3d0df;
+    border-radius: 6px;
+    background: white;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #e8edf2;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #f4f7fb;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .topic-card li:last-child {
@@ -139,6 +210,33 @@ button:hover, input[type="submit"]:hover {
 .study-card .question {
     font-weight: bold;
     margin-bottom: 8px;
+}
+
+.study-gallery {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 24px;
+}
+
+.study-card-container {
+    flex: 1 1 520px;
+    max-width: 720px;
+}
+
+.study-card-item {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+.study-controls {
+    margin-top: 14px;
+    text-align: center;
+    font-weight: 600;
 }
 
 .messages {

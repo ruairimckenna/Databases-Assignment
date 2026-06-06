@@ -20,10 +20,10 @@
         <form method="post">
             {{ flashcard_form.hidden_tag() }}
             <label>{{ flashcard_form.topic_id.label }}</label>
-            {{ flashcard_form.topic_id(class="full") }}
+            {{ flashcard_form.topic_id(class="full", id="topic-select", onchange="populateSubtopicSelect(document.getElementById('subtopic-select'), this.value, 'Choose subtopic')") }}
 
             <label>{{ flashcard_form.subtopic_id.label }}</label>
-            {{ flashcard_form.subtopic_id(class="full") }}
+            {{ flashcard_form.subtopic_id(class="full", id="subtopic-select") }}
 
             <label>{{ flashcard_form.new_subtopic.label }}</label>
             {{ flashcard_form.new_subtopic() }}
@@ -42,29 +42,129 @@
         </form>
     </div>
 
-    {% if selected_topic %}
-        <h2>Existing cards for {{ selected_topic.name }}</h2>
-        {% if selected_topic.subtopics %}
-            {% for subtopic in selected_topic.subtopics %}
-                <div class="topic-card">
-                    <h3>{{ subtopic.name }}</h3>
-                    {% if subtopic.flashcards %}
-                        <ul>
-                            {% for card in subtopic.flashcards %}
-                                <li>
-                                    <strong>Plaintiff:</strong> {{ card.plaintiff }}<br>
-                                    <strong>Defendant:</strong> {{ card.defendant or 'N/A' }}<br>
-                                    <strong>Facts:</strong> {{ card.facts }}
-                                </li>
-                            {% endfor %}
-                        </ul>
+    <div class="card flashcard-snippet">
+        <h2>Your flashcards</h2>
+        <div class="filter-row">
+            <div class="filter-item">
+                <label for="topic-filter">Topic</label>
+                <select id="topic-filter" onchange="onFilterTopicChange()">
+                    <option value="all">All Topics</option>
+                    {% for topic in topics %}
+                        <option value="{{ topic.id }}">{{ topic.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="subtopic-filter">Subtopic</label>
+                <select id="subtopic-filter" onchange="filterFlashcards()">
+                    <option value="all">All Subtopics</option>
+                </select>
+            </div>
+        </div>
+        <label for="table-filter">Search keywords</label>
+        <input id="table-filter" type="text" placeholder="Search topic, subtopic, plaintiff, defendant, facts" oninput="filterFlashcards()">
+
+        <div class="table-wrap">
+            <table id="flashcard-table">
+                <thead>
+                    <tr>
+                        <th>Topic</th>
+                        <th>Subtopic</th>
+                        <th>Plaintiff/Principle</th>
+                        <th>Defendant</th>
+                        <th>Facts</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if flashcards %}
+                        {% for card in flashcards %}
+                            <tr>
+                                <td>{{ card.subtopic.topic.name if card.subtopic and card.subtopic.topic else 'Unknown' }}</td>
+                                <td>{{ card.subtopic.name if card.subtopic else 'Unknown' }}</td>
+                                <td>{{ card.plaintiff }}</td>
+                                <td>{{ card.defendant or 'N/A' }}</td>
+                                <td>{{ card.facts[:80] }}{% if card.facts|length > 80 %}...{% endif %}</td>
+                                <td>
+                                    <form method="post" action="{{ url_for('delete_flashcard', card_id=card.id) }}" onsubmit="return confirm('Delete this flashcard?');">
+                                        <button type="submit">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
                     {% else %}
-                        <p>No flashcards yet for this subtopic.</p>
+                        <tr>
+                            <td colspan="6">No flashcards yet.</td>
+                        </tr>
                     {% endif %}
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>No subtopics created for this topic yet.</p>
-        {% endif %}
-    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const subtopicsByTopic = {{ subtopics_by_topic|tojson }};
+        const flashcardTopicSelect = document.getElementById('topic-select');
+        const flashcardSubtopicSelect = document.getElementById('subtopic-select');
+        const subtopicFilter = document.getElementById('subtopic-filter');
+
+        function populateSubtopicSelect(selectElement, topicId, defaultLabel) {
+            selectElement.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = -1;
+            defaultOption.textContent = defaultLabel;
+            selectElement.appendChild(defaultOption);
+
+            const options = subtopicsByTopic[String(topicId)] || [];
+            options.forEach((subtopic) => {
+                const option = document.createElement('option');
+                option.value = subtopic.id;
+                option.textContent = subtopic.name;
+                selectElement.appendChild(option);
+            });
+        }
+
+        function populateFilterSubtopics(topicId) {
+            subtopicFilter.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'All Subtopics';
+            subtopicFilter.appendChild(allOption);
+
+            if (topicId === 'all') {
+                const allSubtopics = new Set();
+                Object.values(subtopicsByTopic).forEach((subs) => {
+                    subs.forEach((subtopic) => allSubtopics.add(subtopic.name));
+                });
+                Array.from(allSubtopics).sort().forEach((name) => {
+                    const option = document.createElement('option');
+                    option.value = name.toLowerCase();
+                    option.textContent = name;
+                    subtopicFilter.appendChild(option);
+                });
+                return;
+            }
+
+            (subtopicsByTopic[String(topicId)] || []).forEach((subtopic) => {
+                const option = document.createElement('option');
+                option.value = subtopic.name.toLowerCase();
+                option.textContent = subtopic.name;
+                subtopicFilter.appendChild(option);
+            });
+        }
+
+        function onFilterTopicChange() {
+            const topicValue = document.getElementById('topic-filter').value;
+            populateFilterSubtopics(topicValue);
+            filterFlashcards();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (flashcardTopicSelect && flashcardSubtopicSelect) {
+                const topicId = flashcardTopicSelect.value;
+                populateSubtopicSelect(flashcardSubtopicSelect, topicId, 'Choose subtopic');
+            }
+            onFilterTopicChange();
+        });
+    </script>
 {% endblock %}

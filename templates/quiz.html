@@ -6,40 +6,99 @@
     <h1>Quiz</h1>
 
     {% if topics %}
-        <form method="get">
-            <label for="topic">Choose a topic:</label>
-            <select id="topic" name="topic" onchange="this.form.submit()">
-                {% for topic in topics %}
-                    <option value="{{ topic.id }}" {% if selected_topic and topic.id == selected_topic.id %}selected{% endif %}>{{ topic.name }}</option>
-                {% endfor %}
-            </select>
+        <form method="get" class="quiz-selection">
+            <div class="filter-row">
+                <div class="filter-item">
+                    <label for="topic">Choose a subject:</label>
+                    <select id="topic" name="topic" onchange="updateQuizSubtopics(); this.form.submit();">
+                        <option value="">Select subject</option>
+                        {% for topic in topics %}
+                            <option value="{{ topic.id }}" {% if selected_topic and topic.id == selected_topic.id %}selected{% endif %}>{{ topic.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="subtopic">Choose a topic:</label>
+                    <select id="subtopic" name="subtopic">
+                        <option value="">All topics</option>
+                        {% if subtopics %}
+                            {% for subtopic in subtopics %}
+                                <option value="{{ subtopic.id }}" {% if selected_subtopic and selected_subtopic.id == subtopic.id %}selected{% endif %}>{{ subtopic.name }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit">Choose Quiz</button>
         </form>
 
         {% if selected_topic %}
             <h2>{{ selected_topic.name }}</h2>
-            {% if flashcard %}
+            {% if is_finished %}
+                <div class="card">
+                    <p>Your quiz is complete.</p>
+                    <p>Score: <strong>{{ score }} / {{ total }}</strong></p>
+                    <form method="post">
+                        <input type="hidden" name="topic_id" value="{{ selected_topic.id }}">
+                        <input type="hidden" name="subtopic_id" value="{{ selected_subtopic.id if selected_subtopic else '' }}">
+                        <button type="submit" name="action" value="start">Restart Quiz</button>
+                    </form>
+                </div>
+            {% elif flashcard %}
                 <div class="card">
                     <p><strong>Subtopic:</strong> {{ flashcard.subtopic.name }}</p>
-                    <p><strong>Plaintiff:</strong> {{ flashcard.plaintiff }}</p>
-                    <p><strong>Defendant:</strong> {{ flashcard.defendant or 'N/A' }}</p>
+                    <p><strong>Facts:</strong> {{ flashcard.facts }}</p>
                     <form method="post">
-                        <input type="hidden" name="card_id" value="{{ flashcard.id }}">
                         <input type="hidden" name="topic_id" value="{{ selected_topic.id }}">
-                        <label for="answer">Who is the {{ question_label }}?</label>
+                        <input type="hidden" name="subtopic_id" value="{{ selected_subtopic.id if selected_subtopic else '' }}">
+                        <input type="hidden" name="card_ids" value="{{ card_ids }}">
+                        <input type="hidden" name="current" value="{{ current }}">
+                        <input type="hidden" name="score" value="{{ score }}">
+                        <label for="answer">Guess the {{ question_label }}:</label>
                         <input id="answer" type="text" name="answer" value="{{ user_answer }}">
-                        <button type="submit">Submit</button>
+                        <div class="quiz-buttons">
+                            <button type="submit" name="action" value="answer">Submit</button>
+                            <button type="submit" name="action" value="finish">Finish Quiz</button>
+                        </div>
                     </form>
 
                     {% if result == 'correct' %}
                         <p class="correct">Correct!</p>
                     {% elif result == 'incorrect' %}
-                        <p class="incorrect">Not correct. The correct answer is <strong>{{ correct_answer }}</strong>.</p>
+                        <p class="incorrect">Not correct. The best match is <strong>{{ correct_answer }}</strong>.</p>
                     {% endif %}
+                    <p>Progress: <strong>{{ current + 1 if flashcard else total }} / {{ total }}</strong></p>
+                </div>
+            {% elif total > 0 %}
+                <div class="card">
+                    <p>Ready to start the quiz?</p>
+                    <form method="post">
+                        <input type="hidden" name="topic_id" value="{{ selected_topic.id }}">
+                        <input type="hidden" name="subtopic_id" value="{{ selected_subtopic.id if selected_subtopic else '' }}">
+                        <button type="submit" name="action" value="start">Start Quiz</button>
+                    </form>
                 </div>
             {% else %}
-                <p>No flashcards available for this topic yet.</p>
+                <p>No flashcards available for this subject and topic yet.</p>
             {% endif %}
         {% endif %}
+
+        <script>
+            const quizSubtopicsByTopic = {{ subtopics_by_topic|tojson }};
+            function updateQuizSubtopics() {
+                const topicId = document.getElementById('topic').value;
+                const subtopicSelect = document.getElementById('subtopic');
+                subtopicSelect.innerHTML = '<option value="">All topics</option>';
+                if (topicId && quizSubtopicsByTopic[topicId]) {
+                    quizSubtopicsByTopic[topicId].forEach((subtopic) => {
+                        const option = document.createElement('option');
+                        option.value = subtopic.id;
+                        option.textContent = subtopic.name;
+                        subtopicSelect.appendChild(option);
+                    });
+                }
+            }
+        </script>
     {% else %}
         <p>No preset topics found. Reload the app to initialize SQLite.</p>
     {% endif %}

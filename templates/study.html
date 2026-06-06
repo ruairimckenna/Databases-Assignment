@@ -18,15 +18,48 @@
         {% if selected_topic %}
             <h2>{{ selected_topic.name }}</h2>
             {% if cards %}
-                {% for card in cards %}
-                    <div class="study-card">
-                        <div><strong>Subtopic:</strong> {{ card.subtopic.name }}</div>
-                        <div><strong>Plaintiff:</strong> {{ card.plaintiff }}</div>
-                        <div><strong>Defendant:</strong> {{ card.defendant or 'N/A' }}</div>
-                        <button type="button" onclick="toggleAnswer({{ card.id }})">Show Facts</button>
-                        <div id="answer-{{ card.id }}" class="answer hidden">{{ card.facts }}</div>
+                <div class="study-filters">
+                    <div class="filter-item">
+                        <label for="study-subtopic-filter">Subtopic</label>
+                        <select id="study-subtopic-filter" onchange="filterStudyCards()">
+                            <option value="all">All Subtopics</option>
+                            {% for subtopic in study_subtopics %}
+                                <option value="{{ subtopic|lower }}">{{ subtopic }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                {% endfor %}
+                    <div class="filter-item">
+                        <label for="study-search">Search cards</label>
+                        <input id="study-search" type="text" placeholder="Search subtopic, plaintiff/principle, defendant, facts" oninput="filterStudyCards()">
+                    </div>
+                </div>
+                <div class="study-gallery">
+                    <button type="button" onclick="changeStudyCard(-1)">Previous</button>
+                    <div id="study-card-container" class="study-card-container">
+                        {% for card in cards %}
+                            <div class="study-card study-card-item {% if not loop.first %}hidden{% endif %}"
+                                 data-index="{{ loop.index0 }}"
+                                 data-subtopic="{{ card.subtopic.name|lower }}"
+                                 data-search="{{ (card.subtopic.name + ' ' + card.plaintiff + ' ' + (card.defendant or '') + ' ' + card.facts)|lower }}">
+                                <div><strong>Subtopic:</strong> {{ card.subtopic.name }}</div>
+                                <div><strong>Plaintiff/Principle:</strong> {{ card.plaintiff }}</div>
+                                <div><strong>Defendant:</strong> {{ card.defendant or 'N/A' }}</div>
+                                <button type="button" onclick="toggleAnswer({{ card.id }})">Show Facts</button>
+                                <div id="answer-{{ card.id }}" class="answer hidden">{{ card.facts }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" onclick="changeStudyCard(1)">Next</button>
+                </div>
+                <div class="study-controls">
+                    <span id="study-card-position">1 / {{ cards|length }}</span>
+                </div>
+                <p id="study-no-results" class="hidden">No cards match this filter.</p>
+                <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        initStudyGallery({{ cards|length }});
+                    });
+                </script>
             {% else %}
                 <p>No flashcards created for this topic yet.</p>
             {% endif %}
