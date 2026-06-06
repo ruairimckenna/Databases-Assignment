@@ -16,7 +16,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 )
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "dev"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev")
 
 db.init_app(app)
 
